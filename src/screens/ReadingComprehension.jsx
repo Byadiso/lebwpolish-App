@@ -1,6 +1,18 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { READING_VAULT } from "../data/readingVault";
+import React, { useState } from 'react';
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  Dimensions, 
+  SafeAreaView,
+  StatusBar
+} from 'react-native';
+import { MotiView, AnimatePresence } from 'moti';
+import { READING_VAULT } from '../data/readingVault';
+import { ArrowRight, Star, X, Lightbulb, Info } from 'lucide-react-native';
+
+const { width } = Dimensions.get('window');
 
 export default function PolishReadingEngine() {
   const [selectedTextId, setSelectedTextId] = useState(null);
@@ -13,8 +25,7 @@ export default function PolishReadingEngine() {
 
   const activeData = READING_VAULT.find((t) => t.id === selectedTextId);
 
-  const toggleFavorite = (e, id) => {
-    e.stopPropagation();
+  const toggleFavorite = (id) => {
     setFavorites((prev) =>
       prev.includes(id) ? prev.filter((favId) => favId !== id) : [...prev, id]
     );
@@ -26,229 +37,266 @@ export default function PolishReadingEngine() {
 
   const calculateScore = () => {
     let score = 0;
-    activeData.questions.forEach((q) => {
+    activeData?.questions.forEach((q) => {
       if (answers[q.id] === q.correct) score++;
     });
     return score;
   };
 
-  /**
-   * Renders the text by splitting it into individual words.
-   * If a word exists in the glossary, it highlights it.
-   * If not, it still allows clicking for a general meaning (placeholder).
-   */
   const renderInteractiveText = (text, glossary = {}) => {
-    const words = text.split(/(\s+)/); // Keep spaces for correct formatting
+    const words = text.split(/(\s+)/);
+    return (
+      <View className="flex-row flex-wrap">
+        {words.map((part, i) => {
+          const cleanWord = part.toLowerCase().replace(/[.,„”()]/g, "").trim();
+          const hasDefinition = glossary && glossary[cleanWord];
+          const isSelected = activeTooltip === i;
 
-    return words.map((part, i) => {
-      // Clean word of punctuation for matching
-      const cleanWord = part.toLowerCase().replace(/[.,„”()]/g, "").trim();
-      const hasDefinition = glossary && glossary[cleanWord];
-
-      if (cleanWord.length > 0) {
-        return (
-          <span key={i} className="relative inline-block">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveTooltip(activeTooltip === i ? null : i);
-              }}
-              className={`transition-colors px-0.5 rounded cursor-help ${
-                hasDefinition 
-                  ? "text-indigo-400 font-bold border-b border-indigo-500/50 hover:bg-indigo-500/10" 
-                  : "hover:text-indigo-300"
-              }`}
-            >
-              {part}
-            </button>
-            <AnimatePresence>
-              {activeTooltip === i && (
-                <motion.div
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 p-3 bg-indigo-600 text-[11px] leading-tight rounded-xl shadow-2xl z-50 text-white not-italic font-sans text-center"
+          if (cleanWord.length > 0) {
+            return (
+              <View key={i} className="relative z-10">
+                <TouchableOpacity
+                  onPress={() => setActiveTooltip(isSelected ? null : i)}
+                  className={`px-0.5 rounded ${hasDefinition ? 'border-b-2 border-indigo-500' : ''}`}
                 >
-                  <p className="font-black uppercase mb-1 border-b border-white/20 pb-1">
-                    {hasDefinition ? "Znaczenie" : "Słowo"}
-                  </p>
-                  {hasDefinition || "Kliknięto słowo (Brak w słowniku)"}
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-indigo-600" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </span>
-        );
-      }
-      return part;
-    });
+                  <Text className={`text-xl font-serif leading-9 ${
+                    hasDefinition ? 'text-indigo-400 font-bold' : 'text-slate-100'
+                  }`}>
+                    {part}
+                  </Text>
+                </TouchableOpacity>
+
+                {isSelected && (
+                  <MotiView
+                    from={{ opacity: 0, scale: 0.5, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    className="absolute bottom-full left-0 mb-2 w-48 bg-indigo-600 p-3 rounded-xl shadow-2xl z-50"
+                  >
+                    <Text className="text-[10px] font-black text-white uppercase mb-1 border-b border-white/20 pb-1">
+                      {hasDefinition ? "Znaczenie" : "Słowo"}
+                    </Text>
+                    <Text className="text-white text-xs leading-tight font-bold">
+                      {hasDefinition || "Kliknięto słowo (Brak w słowniku)"}
+                    </Text>
+                    <View className="absolute top-full left-4 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-indigo-600" />
+                  </MotiView>
+                )}
+              </View>
+            );
+          }
+          return <Text key={i} className="text-xl leading-9"> </Text>;
+        })}
+      </View>
+    );
   };
 
   // --- MENU VIEW ---
   if (!selectedTextId) {
     return (
-      <div className="w-full bg-[#020617] min-h-screen text-white">
-        <div className="max-w-6xl mx-auto p-6 md:p-12">
-          <header className="mb-16 flex flex-col items-center text-center">
-            <h1 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter mb-4">
-              B1 READING <span className="text-indigo-500 font-serif">CODEX</span>
-            </h1>
-            <div className="h-1.5 w-32 bg-indigo-600 rounded-full shadow-[0_0_20px_rgba(79,70,229,0.6)]" />
-          </header>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+      <SafeAreaView className="flex-1 bg-slate-950">
+        <ScrollView className="px-6 py-8">
+          <View className="items-center mb-12">
+            <Text className="text-white text-4xl font-black italic tracking-tighter uppercase text-center">
+              B1 READING <Text className="text-indigo-500 font-serif lowercase">Codex</Text>
+            </Text>
+            <View className="h-1.5 w-24 bg-indigo-600 rounded-full mt-4 shadow-xl" />
+          </View>
+
+          <View className="gap-6 pb-20">
             {READING_VAULT.map((item) => (
-              <button
+              <TouchableOpacity
                 key={item.id}
-                onClick={() => setSelectedTextId(item.id)}
-                className="relative bg-[#0f172a] border border-white/10 p-8 rounded-[2.5rem] text-left hover:border-indigo-500/50 hover:bg-[#1e293b] transition-all group overflow-hidden shadow-2xl"
+                onPress={() => setSelectedTextId(item.id)}
+                className="bg-slate-900 border border-white/10 p-6 rounded-[2.5rem] overflow-hidden"
               >
-                <div className="flex justify-between items-start mb-6">
-                  <span className="text-5xl group-hover:scale-110 transition-transform duration-300">{item.icon}</span>
-                  <span 
-                    onClick={(e) => toggleFavorite(e, item.id)}
-                    className={`text-2xl cursor-pointer p-2 rounded-full hover:bg-white/5 transition-colors ${favorites.includes(item.id) ? 'text-indigo-500' : 'text-slate-700'}`}
-                  >
-                    {favorites.includes(item.id) ? "★" : "☆"}
-                  </span>
-                </div>
-                <h3 className="text-xs font-black text-indigo-500 uppercase tracking-[0.2em] mb-2">{item.category}</h3>
-                <h2 className="text-2xl font-bold mb-6 leading-tight group-hover:text-indigo-100 transition-colors">{item.title}</h2>
-                <div className="mt-auto flex items-center text-[11px] font-black text-slate-500 uppercase tracking-widest">
-                  <span>View Analysis</span>
-                  <span className="ml-2 group-hover:translate-x-2 transition-transform duration-300">→</span>
-                </div>
-              </button>
+                <View className="flex-row justify-between items-start mb-4">
+                  <Text className="text-5xl">{item.icon}</Text>
+                  <TouchableOpacity onPress={() => toggleFavorite(item.id)}>
+                    <Star 
+                      size={28} 
+                      color={favorites.includes(item.id) ? "#6366f1" : "#1e293b"} 
+                      fill={favorites.includes(item.id) ? "#6366f1" : "transparent"}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text className="text-indigo-500 font-black uppercase tracking-widest text-[10px] mb-1">
+                  {item.category}
+                </Text>
+                <Text className="text-white text-2xl font-bold mb-4">{item.title}</Text>
+                <View className="flex-row items-center">
+                  <Text className="text-slate-500 font-black text-[10px] uppercase mr-2">Open Analysis</Text>
+                  <ArrowRight size={14} color="#64748b" />
+                </View>
+              </TouchableOpacity>
             ))}
-          </div>
-        </div>
-      </div>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   // --- SIMULATOR VIEW ---
   return (
-    <div className="w-full bg-[#020617] min-h-screen text-white" onClick={() => setActiveTooltip(null)}>
-      <div className="max-w-4xl mx-auto p-4 md:p-10">
-        <header className="mb-8 border-b border-white/10 pb-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-xl md:text-2xl font-black uppercase italic tracking-tighter">
-              B1 <span className="text-indigo-500 font-serif">Simulator</span>
-            </h1>
-            <p className="text-[9px] text-slate-500 uppercase font-bold tracking-[0.2em]">{activeData.title}</p>
-          </div>
-          <button
-            onClick={() => { setSelectedTextId(null); setShowGrammarNote(false); setShowResults(false); setIsStarted(false); setAnswers({}); }}
-            className="text-[10px] font-black bg-slate-900 border border-white/10 hover:bg-slate-800 px-5 py-2.5 rounded-full uppercase tracking-widest transition-all"
+    <View className="flex-1 bg-slate-950">
+      <StatusBar barStyle="light-content" />
+      <SafeAreaView className="flex-1">
+        <View className="px-5 py-4 border-b border-white/10 flex-row justify-between items-center bg-slate-950">
+          <View>
+            <Text className="text-white font-black italic uppercase text-lg">
+              B1 <Text className="text-indigo-500 font-serif">Simulator</Text>
+            </Text>
+            <Text className="text-[8px] text-slate-500 font-black uppercase tracking-widest" numberOfLines={1}>
+              {activeData.title}
+            </Text>
+          </View>
+          <TouchableOpacity 
+            onPress={() => { setSelectedTextId(null); setShowResults(false); setIsStarted(false); setAnswers({}); }}
+            className="bg-slate-900 px-4 py-2 rounded-full border border-white/10"
           >
-            Exit Codex
-          </button>
-        </header>
+            <Text className="text-white text-[10px] font-black uppercase">Exit</Text>
+          </TouchableOpacity>
+        </View>
 
-        {!isStarted ? (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#0f172a] p-8 md:p-16 rounded-[3.5rem] border border-white/5 text-center shadow-2xl">
-            <div className="text-8xl mb-6">{activeData.icon}</div>
-            <h2 className="text-2xl md:text-4xl font-black mb-4 uppercase tracking-tight">{activeData.title}</h2>
-            <p className="text-slate-400 text-sm md:text-base max-w-md mx-auto mb-10 leading-relaxed italic">
-              "Deep analysis mode engaged. Verify facts, identify linguistic traps, and master the B1 lexicon."
-            </p>
-            <button
-              onClick={() => setIsStarted(true)}
-              className="bg-indigo-600 hover:bg-indigo-500 px-12 py-5 rounded-2xl font-black uppercase tracking-[0.25em] text-xs transition-all shadow-[0_10px_30px_rgba(79,70,229,0.3)] active:scale-95"
+        <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
+          {!isStarted ? (
+            <MotiView 
+              from={{ opacity: 0, scale: 0.9 }} 
+              animate={{ opacity: 1, scale: 1 }}
+              className="mt-10 bg-slate-900 p-10 rounded-[3rem] border border-white/5 items-center"
             >
-              Start Analysis
-            </button>
-          </motion.div>
-        ) : (
-          <div className="space-y-6 md:space-y-12 pb-20" onClick={(e) => e.stopPropagation()}>
-            <motion.div 
-              initial={{ y: 20, opacity: 0 }} 
-              animate={{ y: 0, opacity: 1 }} 
-              className="bg-[#0f172a] p-6 md:p-14 rounded-[3rem] border border-indigo-500/20 leading-relaxed text-xl md:text-2xl italic font-serif shadow-2xl relative"
-            >
-              <div className="text-slate-100">
-                {renderInteractiveText(activeData.text, activeData.glossary)}
-              </div>
-              
-              <div className="mt-10 flex flex-col sm:flex-row justify-between items-center gap-6 pt-8 border-t border-white/5">
-                  <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest italic order-2 sm:order-1 flex items-center">
-                    <span className="mr-2 text-base">💡</span> Click terms for B1 meaning
-                  </p>
-                  {activeData.grammarNote && (
-                    <button 
-                      onClick={() => setShowGrammarNote(!showGrammarNote)}
-                      className="w-full sm:w-auto text-[10px] font-black uppercase bg-indigo-600/10 hover:bg-indigo-600/20 px-6 py-3 rounded-full border border-indigo-500/30 transition-all order-1 sm:order-2 text-indigo-300"
-                    >
-                      {showGrammarNote ? "Close Grammar Insight" : "View Grammar Insight"}
-                    </button>
-                  )}
-              </div>
-
-              <AnimatePresence>
-                {showGrammarNote && (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                    <div className="mt-8 p-6 bg-indigo-950/30 rounded-[2rem] border border-indigo-500/10 text-sm md:text-base text-indigo-100 not-italic leading-relaxed">
-                      <span className="font-black uppercase text-indigo-400 block mb-3 tracking-widest text-xs underline underline-offset-8">Grammar Spotlight</span>
-                      {activeData.grammarNote}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-
-            <div className="space-y-6">
-              {activeData.questions.map((q, idx) => (
-                <div key={q.id} className="bg-[#0f172a] p-8 md:p-10 rounded-[2.5rem] border border-white/5 shadow-xl">
-                  <p className="font-bold mb-8 text-slate-100 text-lg md:text-xl leading-snug">
-                    <span className="text-indigo-500 mr-3 opacity-50">0{idx + 1}.</span> {q.q}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {q.options.map((opt) => {
-                      const isSelected = answers[q.id] === opt;
-                      const isCorrect = opt === q.correct;
-                      return (
-                        <button
-                          key={opt}
-                          disabled={showResults}
-                          onClick={() => handleSelect(q.id, opt)}
-                          className={`py-5 px-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
-                            showResults
-                              ? isCorrect ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" : isSelected ? "bg-rose-500/10 border-rose-500 text-rose-400" : "bg-slate-900 border-white/5 opacity-30"
-                              : isSelected ? "bg-indigo-600 border-indigo-400 text-white shadow-[0_0_20px_rgba(79,70,229,0.4)]" : "bg-slate-900 border-white/5 hover:border-slate-500 hover:bg-slate-800"
-                          }`}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {!showResults ? (
-              <button
-                onClick={() => setShowResults(true)}
-                disabled={Object.keys(answers).length < activeData.questions.length}
-                className="w-full py-7 bg-white text-black rounded-[2.5rem] font-black uppercase tracking-[0.4em] text-xs hover:bg-indigo-500 hover:text-white transition-all shadow-2xl disabled:opacity-10 disabled:grayscale"
+              <Text className="text-8xl mb-6">{activeData.icon}</Text>
+              <Text className="text-white text-3xl font-black uppercase text-center mb-4">{activeData.title}</Text>
+              <Text className="text-slate-400 text-center italic mb-10 leading-6 px-4">
+                "Deep analysis mode engaged. Verify facts, identify linguistic traps, and master the B1 lexicon."
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsStarted(true)}
+                className="bg-indigo-600 px-10 py-5 rounded-2xl shadow-2xl active:scale-95 w-full"
               >
-                Submit Analysis
-              </button>
-            ) : (
-              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-12 bg-indigo-700 rounded-[3.5rem] shadow-2xl">
-                <h3 className="text-4xl font-black uppercase italic mb-3 tracking-tighter">Result: {calculateScore()} / {activeData.questions.length}</h3>
-                <p className="text-indigo-200 text-[11px] mb-10 font-black uppercase tracking-[0.3em]">Module Competency Achieved</p>
-                <button
-                  onClick={() => { setIsStarted(false); setShowResults(false); setAnswers({}); setSelectedTextId(null); setShowGrammarNote(false); }}
-                  className="bg-white/10 hover:bg-white/20 px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border border-white/20"
+                <Text className="text-white text-center font-black uppercase tracking-widest">Start Analysis</Text>
+              </TouchableOpacity>
+            </MotiView>
+          ) : (
+            <View className="py-6 gap-8 pb-32">
+              {/* INTERACTIVE TEXT */}
+              <MotiView 
+                from={{ y: 20, opacity: 0 }} 
+                animate={{ y: 0, opacity: 1 }}
+                className="bg-slate-900 p-8 rounded-[2.5rem] border border-indigo-500/20 shadow-2xl"
+              >
+                {renderInteractiveText(activeData.text, activeData.glossary)}
+                
+                <View className="mt-8 pt-6 border-t border-white/5 gap-4">
+                  <View className="flex-row items-center">
+                    <Lightbulb size={16} color="#818cf8" />
+                    <Text className="text-indigo-400 text-[10px] font-bold uppercase ml-2 italic">
+                      Tap terms for B1 meaning
+                    </Text>
+                  </View>
+
+                  {activeData.grammarNote && (
+                    <TouchableOpacity 
+                      onPress={() => setShowGrammarNote(!showGrammarNote)}
+                      className="bg-indigo-600/20 p-4 rounded-2xl border border-indigo-500/30 flex-row justify-between items-center"
+                    >
+                      <Text className="text-indigo-300 text-[10px] font-black uppercase">
+                        {showGrammarNote ? "Hide Grammar Insight" : "View Grammar Insight"}
+                      </Text>
+                      <Info size={16} color="#818cf8" />
+                    </TouchableOpacity>
+                  )}
+
+                  {showGrammarNote && (
+                    <MotiView 
+                      from={{ opacity: 0, height: 0 }} 
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="bg-indigo-950/40 p-5 rounded-2xl"
+                    >
+                      <Text className="text-indigo-100 text-sm leading-6">
+                        {activeData.grammarNote}
+                      </Text>
+                    </MotiView>
+                  )}
+                </View>
+              </MotiView>
+
+              {/* QUESTIONS */}
+              <View className="gap-6">
+                {activeData.questions.map((q, idx) => (
+                  <View key={q.id} className="bg-slate-900 p-6 rounded-[2rem] border border-white/5">
+                    <Text className="text-white text-lg font-bold mb-6">
+                      <Text className="text-indigo-500 opacity-50">0{idx + 1}. </Text>{q.q}
+                    </Text>
+                    <View className="gap-3">
+                      {q.options.map((opt) => {
+                        const isSelected = answers[q.id] === opt;
+                        const isCorrect = opt === q.correct;
+                        
+                        let bgColor = "bg-slate-800";
+                        let borderColor = "border-transparent";
+                        let textColor = "text-slate-400";
+
+                        if (showResults) {
+                          if (isCorrect) {
+                            bgColor = "bg-emerald-500/10"; borderColor = "border-emerald-500"; textColor = "text-emerald-400";
+                          } else if (isSelected) {
+                            bgColor = "bg-rose-500/10"; borderColor = "border-rose-500"; textColor = "text-rose-400";
+                          } else {
+                            bgColor = "bg-slate-900"; textColor = "text-slate-600 opacity-50";
+                          }
+                        } else if (isSelected) {
+                          bgColor = "bg-indigo-600"; borderColor = "border-indigo-400"; textColor = "text-white";
+                        }
+
+                        return (
+                          <TouchableOpacity
+                            key={opt}
+                            disabled={showResults}
+                            onPress={() => handleSelect(q.id, opt)}
+                            className={`${bgColor} ${borderColor} border-2 p-5 rounded-2xl`}
+                          >
+                            <Text className={`${textColor} text-center font-black uppercase text-[10px] tracking-widest`}>
+                              {opt}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              {/* ACTION BUTTON */}
+              {!showResults ? (
+                <TouchableOpacity
+                  onPress={() => setShowResults(true)}
+                  disabled={Object.keys(answers).length < activeData.questions.length}
+                  className={`py-6 rounded-full shadow-2xl ${
+                    Object.keys(answers).length < activeData.questions.length ? 'bg-slate-800' : 'bg-white'
+                  }`}
                 >
-                  Return to Codex
-                </button>
-              </motion.div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+                  <Text className="text-slate-950 text-center font-black uppercase tracking-[0.3em] text-xs">
+                    Submit Analysis
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <MotiView from={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-indigo-600 p-10 rounded-[3rem] items-center">
+                  <Text className="text-white text-3xl font-black uppercase italic text-center mb-2">
+                    Score: {calculateScore()} / {activeData.questions.length}
+                  </Text>
+                  <Text className="text-indigo-200 font-black uppercase text-[10px] tracking-widest mb-8">Module Competency Achieved</Text>
+                  <TouchableOpacity
+                    onPress={() => { setIsStarted(false); setShowResults(false); setAnswers({}); setSelectedTextId(null); }}
+                    className="bg-white/10 px-8 py-4 rounded-full border border-white/20"
+                  >
+                    <Text className="text-white font-black uppercase text-[10px]">Return to Codex</Text>
+                  </TouchableOpacity>
+                </MotiView>
+              )}
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }

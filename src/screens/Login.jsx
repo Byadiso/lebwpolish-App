@@ -4,17 +4,18 @@ import {
   Text, 
   TextInput, 
   TouchableOpacity, 
-  ActivityIndicator, 
-  SafeAreaView, 
+  ActivityIndicator,
   KeyboardAvoidingView, 
   Platform, 
   ScrollView,
   Linking 
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth, db } from '../firebase/config';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
+import { ArrowLeft } from 'lucide-react-native';
 
 const ADMIN_EMAIL = "byadiso@gmail.com";
 const SUPPORT_EMAIL = "nganatech@gmail.com";
@@ -25,15 +26,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   const handleLogin = async () => {
     if (!email || !pass) {
       setError("Please fill in all fields.");
       return;
     }
-
     setLoading(true);
     setError("");
     const normalizedEmail = email.trim().toLowerCase();
@@ -47,14 +47,16 @@ export default function Login() {
           where("email", "==", normalizedEmail),
           where("passcode", "==", pass.trim())
         );
-
         const snapshot = await getDocs(q);
         if (snapshot.empty) throw new Error("Invalid email or access key.");
 
         try {
           await signInWithEmailAndPassword(auth, normalizedEmail, pass.trim());
         } catch (signInErr) {
-          if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential') {
+          if (
+            signInErr.code === 'auth/user-not-found' ||
+            signInErr.code === 'auth/invalid-credential'
+          ) {
             await createUserWithEmailAndPassword(auth, normalizedEmail, pass.trim());
           } else {
             throw signInErr;
@@ -63,8 +65,7 @@ export default function Login() {
       }
 
       setSuccess(true);
-      // Navigation in Mobile: use name of the screen defined in RootNavigator
-      setTimeout(() => navigation.navigate('Space'), 1200);
+      setTimeout(() => navigation.navigate('MainTabs'), 1200); // ✅ fixed route
 
     } catch (err) {
       setError(err.message.includes("access key")
@@ -79,26 +80,60 @@ export default function Login() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F8FAFC]">
-      <KeyboardAvoidingView 
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC', paddingTop: insets.top }}>
+
+      {/* ✅ Top Navbar with back button + logo + signup */}
+      <View style={{ backgroundColor: '#020617' }} className="flex-row justify-between items-center px-5 h-14 border-b border-white/5">
+        
+        {/* Back Button */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('MainTabs')}
+          className="flex-row items-center gap-2"
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ArrowLeft size={18} color="#64748b" />
+          <Text className="text-slate-400 font-black text-[10px] uppercase">{'Home'}</Text>
+        </TouchableOpacity>
+
+        {/* Logo */}
+        <Text className="text-lg font-black text-white italic tracking-tighter">
+          {'LEBW'}<Text className="text-red-600">{'POLISH'}</Text>
+        </Text>
+
+        {/* Sign Up CTA */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Signup')}
+          className="bg-red-600 px-3 py-1.5 rounded-lg"
+        >
+          <Text className="text-white font-black text-[10px] uppercase">{'Sign Up'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+        style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} className="px-6">
-          
-          {/* Header Line (Mobile style) */}
-          <View className="absolute top-0 left-0 right-0 h-1 bg-red-600 shadow-sm" />
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            paddingBottom: insets.bottom + 20
+          }}
+          className="px-6"
+        >
 
           <View className="w-full py-10 px-8 bg-white rounded-[40px] shadow-xl border border-slate-100">
-            
+
             {/* Logo Section */}
             <View className="mb-10 items-center">
               <Text className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">
-                LEBW<Text className="text-red-600">POL</Text>
+                {'LEBW'}<Text className="text-red-600">{'POL'}</Text>
               </Text>
               <View className="flex-row items-center justify-center mt-3">
                 <View className="h-[1px] w-4 bg-slate-200" />
-                <Text className="text-slate-400 text-[9px] font-black uppercase tracking-[4px] px-2">Secure Access</Text>
+                <Text className="text-slate-400 text-[9px] font-black uppercase tracking-[4px] px-2">
+                  {'Secure Access'}
+                </Text>
                 <View className="h-[1px] w-4 bg-slate-200" />
               </View>
             </View>
@@ -116,14 +151,14 @@ export default function Login() {
             <View className="space-y-6">
               <View>
                 <Text className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">
-                  Email Address
+                  {'Email Address'}
                 </Text>
                 <TextInput
                   autoCapitalize="none"
                   keyboardType="email-address"
                   placeholder="name@example.com"
                   placeholderTextColor="#94a3b8"
-                  className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-900 border-2 border-transparent focus:border-red-600"
+                  className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-900 border-2 border-transparent"
                   onChangeText={setEmail}
                   value={email}
                 />
@@ -131,19 +166,19 @@ export default function Login() {
 
               <View className="mt-4">
                 <Text className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">
-                  {email.toLowerCase() === ADMIN_EMAIL ? "Admin Password" : "6-Digit Access Key"}
+                  {email.toLowerCase() === ADMIN_EMAIL ? 'Admin Password' : '6-Digit Access Key'}
                 </Text>
                 <TextInput
                   secureTextEntry
                   placeholder={email.toLowerCase() === ADMIN_EMAIL ? "••••••••" : "000 000"}
                   placeholderTextColor="#94a3b8"
-                  className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-900 tracking-[5px] border-2 border-transparent focus:border-red-600"
+                  className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-900 tracking-[5px] border-2 border-transparent"
                   onChangeText={setPass}
                   value={pass}
                 />
               </View>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleLogin}
                 disabled={loading || success}
                 className={`w-full py-5 rounded-2xl items-center mt-6 shadow-lg ${
@@ -154,7 +189,7 @@ export default function Login() {
                   <ActivityIndicator color="white" />
                 ) : (
                   <Text className="text-white font-black text-[11px] uppercase tracking-[2px]">
-                    {success ? "Success!" : "Sign In"}
+                    {success ? 'Success! ✓' : 'Sign In'}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -163,19 +198,19 @@ export default function Login() {
 
           {/* Footer */}
           <View className="mt-8 items-center">
-            <Text className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic text-center leading-4">
-              Brak kodu? Napisz do:{"\n"}
-              <Text 
+            <Text className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic text-center leading-6">
+              {'Brak kodu? Napisz do:\n'}
+              <Text
                 onPress={handleSupportEmail}
                 className="text-red-500 underline"
               >
-                Administratora ({SUPPORT_EMAIL})
+                {'Administratora ('}{SUPPORT_EMAIL}{')'}
               </Text>
             </Text>
           </View>
 
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
